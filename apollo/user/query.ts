@@ -658,3 +658,18 @@ export const GET_MESSAGE = gql`
 		}
 	}
 `;
+
+
+
+export const GET_NOTICE = gql`
+	query GetNotice {
+		getNotice {
+			_id
+			noticeCategory
+			noticeStatus
+			noticeTitle
+			noticeContent
+			createdAt
+		}
+	}
+`;
