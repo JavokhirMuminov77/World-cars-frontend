@@ -121,8 +121,7 @@ const Footer = () => {
 					</Stack>
 				</Stack>
 				<Stack className={'second'}>
-					<span>© Nestar - All rights reserved. Nestar {moment().year()}</span>
-					<span>Privacy · Terms · Sitemap</span>
+					<span>© Javokhir Muminov Full-stack developer. {moment().year()}</span>
 				</Stack>
 			</Stack>
 		);

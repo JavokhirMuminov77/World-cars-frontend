@@ -1,5 +1,5 @@
 import React, { ChangeEvent, useEffect, useState } from 'react';
-import { Box, Button, Checkbox, Stack, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import useDeviceDetect from '../../libs/hooks/useDeviceDetect';
 import withLayoutFull from '../../libs/components/layout/LayoutFull';
 import { NextPage } from 'next';
@@ -25,13 +25,20 @@ import { Pagination as MuiPagination } from '@mui/material';
 import Link from 'next/link';
 import RemoveRedEyeIcon from '@mui/icons-material/RemoveRedEye';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import { GET_COMMENTS, GET_PROPERTIES, GET_PROPERTY } from '../../apollo/user/query';
+import { T } from '../../libs/types/common';
+import { Direction, Message } from '../../libs/enums/common.enum';
+import { CREATE_COMMENT, CREATE_MESSAGE, LIKE_TARGET_PROPERTY } from '../../apollo/user/mutation';
+import { sweetErrorHandling, sweetMixinErrorAlert, sweetTopSmallSuccessAlert } from '../../libs/sweetAlert';
+import SmokeFreeIcon from '@mui/icons-material/SmokeFree';
+import LocalParkingIcon from '@mui/icons-material/LocalParking';
+import WifiIcon from '@mui/icons-material/Wifi';
+import FamilyRestroomIcon from '@mui/icons-material/FamilyRestroom';
+import DeckIcon from '@mui/icons-material/Deck';
+import FreeBreakfastIcon from '@mui/icons-material/FreeBreakfast';
 import 'swiper/css';
 import 'swiper/css/pagination';
-import { CREATE_COMMENT, LIKE_TARGET_PROPERTY } from '../../apollo/user/mutation';
-import { GET_COMMENTS } from '../../apollo/admin/query';
-import { T } from '../../libs/types/common';
-import { Direction } from '../../libs/enums/common.enum';
-import { GET_PROPERTIES, GET_PROPERTY } from '../../apollo/user/query';
+import { ContactInput } from '../../libs/types/contact/contact.input';
 
 SwiperCore.use([Autoplay, Navigation, Pagination]);
 
@@ -48,10 +55,17 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 	const [propertyId, setPropertyId] = useState<string | null>(null);
 	const [property, setProperty] = useState<Property | null>(null);
 	const [slideImage, setSlideImage] = useState<string>('');
-	const [destinationProperty, setDestinationProperty] = useState<Property[]>([]);
+	const [destinationProperties, setDestinationProperties] = useState<Property[]>([]);
 	const [commentInquiry, setCommentInquiry] = useState<CommentsInquiry>(initialComment);
 	const [propertyComments, setPropertyComments] = useState<Comment[]>([]);
 	const [commentTotal, setCommentTotal] = useState<number>(0);
+	const [insertMessageData, setInsertMessageData] = useState<ContactInput>({
+		name: '',
+		phone: '',
+		email: '',
+		message: '',
+		contactRefId: `${property?.memberData?._id}`,
+	});
 	const [insertCommentData, setInsertCommentData] = useState<CommentInput>({
 		commentGroup: CommentGroup.PROPERTY,
 		commentContent: '',
@@ -61,6 +75,7 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 	/** APOLLO REQUESTS **/
 	const [likeTargetProperty] = useMutation(LIKE_TARGET_PROPERTY);
 	const [createComment] = useMutation(CREATE_COMMENT);
+	const [createMessage] = useMutation(CREATE_MESSAGE);
 
 	const {
 		loading: getPropertyLoading,
@@ -70,7 +85,6 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 	} = useQuery(GET_PROPERTY, {
 		fetchPolicy: 'network-only',
 		variables: { input: propertyId },
-		skip: !propertyId,
 		notifyOnNetworkStatusChange: true,
 		onCompleted: (data: T) => {
 			if (data?.getProperty) setProperty(data?.getProperty);
@@ -118,6 +132,7 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 			setCommentTotal(data?.getComments?.metaCounter[0]?.total ?? 0);
 		},
 	});
+
 	/** LIFECYCLES **/
 	useEffect(() => {
 		if (router.query.id) {
@@ -132,14 +147,50 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 				...insertCommentData,
 				commentRefId: router.query.id as string,
 			});
+			setInsertMessageData({
+				...insertMessageData,
+				contactRefId: router.query.id as string,
+			});
 		}
 	}, [router]);
 
-	useEffect(() => {}, [commentInquiry]);
+	useEffect(() => {
+		if (commentInquiry.search.commentRefId) {
+			getCommentsRefetch({ input: commentInquiry });
+		}
+	}, [commentInquiry]);
 
 	/** HANDLERS **/
 	const changeImageHandler = (image: string) => {
 		setSlideImage(image);
+	};
+
+	const likePropertyHandler = async (user: T, id: string) => {
+		try {
+			if (!id) return;
+			if (!user._id) throw new Error(Message.NOT_AUTHENTICATED);
+
+			await likeTargetProperty({ variables: { input: id } });
+
+			await getPropertyRefetch({ input: id });
+
+			await getPropertiesRefetch({
+				input: {
+					page: 1,
+					limit: 4,
+					sort: 'createdAt',
+					direction: Direction.DESC,
+					search: {
+						locationList: [property?.propertyLocation],
+					},
+				},
+			});
+
+			await sweetTopSmallSuccessAlert('success', 800);
+		} catch (err: any) {
+			console.log('ERROR, likePropertyHandler:', err.message);
+			sweetMixinErrorAlert(err.message).then();
+		}
 	};
 
 	const commentPaginationChangeHandler = async (event: ChangeEvent<unknown>, value: number) => {
@@ -147,6 +198,48 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 		setCommentInquiry({ ...commentInquiry });
 	};
 
+	const createCommentHandler = async () => {
+		try {
+			if (!user._id) throw new Error(Message.NOT_AUTHENTICATED);
+			await createComment({ variables: { input: insertCommentData } });
+
+			setInsertCommentData({ ...insertCommentData, commentContent: '' });
+
+			await getCommentsRefetch({ input: commentInquiry });
+		} catch (err: any) {
+			await sweetErrorHandling(err);
+		}
+	};
+
+	const createMessageHandler = async () => {
+		try {
+			if (!user._id) throw new Error(Message.NOT_AUTHENTICATED);
+			await createMessage({ variables: { input: insertMessageData } });
+
+			setInsertMessageData({ ...insertMessageData, name: '', phone: '', email: '', message: '' });
+		} catch (err: any) {
+			await sweetErrorHandling(err);
+		}
+	};
+
+	const doDisabledCheck = () => {
+		if (
+			insertMessageData.name === '' ||
+			insertMessageData.phone === '' ||
+			insertMessageData.email === '' ||
+			insertMessageData.message === ''
+		) {
+			return true;
+		}
+	};
+
+	if (getPropertyLoading) {
+		return (
+			<Stack sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: '1080px' }}>
+				<CircularProgress size={'4rem'} />
+			</Stack>
+		);
+	}
 	if (device === 'mobile') {
 		return <div>PROPERTY DETAIL PAGE</div>;
 	} else {
@@ -203,18 +296,18 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 											</defs>
 										</svg>
 										<Typography className={'date'}>{moment().diff(property?.createdAt, 'days')} days ago</Typography>
+
 									</Stack>
+
 									<Stack className={'bottom-box'}>
-										{/* <Stack className="option">
-											<img src="/img/icons/bed.svg" alt="" /> <Typography>{property?.propertyBeds} bed</Typography>
-										</Stack> */}
-										{/* <Stack className="option">
-											<img src="/img/icons/room.svg" alt="" /> <Typography>{property?.propertySeat} room</Typography>
-										</Stack> */}
 										<Stack className="option">
 											<img src="/img/icons/moshina.jpg" alt="" width='24' height='24' /> <Typography>{property?.propertySize} km</Typography>
 										</Stack>
+
+
+
 									</Stack>
+
 								</Stack>
 								<Stack className={'right-box'}>
 									<Stack className="buttons">
@@ -261,18 +354,7 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 							<Stack className={'left-config'}>
 								<Stack className={'options-config'}>
 									<Stack className={'option'}>
-										{/* <Stack className={'svg-box'}>
-											<svg xmlns="http://www.w3.org/2000/svg" width="24" height="20" viewBox="0 0 24 20" fill="none">
-												<path
-													d="M21.4883 11.1135L21.4071 11.0524V5.26354C21.4071 4.47769 21.0568 3.72395 20.4331 3.16775C19.8094 2.61155 18.9632 2.29835 18.0803 2.29688H6.09625C5.21335 2.29835 4.36717 2.61155 3.74345 3.16775C3.11973 3.72395 2.76942 4.47769 2.76942 5.26354V11.058L2.68828 11.1135C2.31313 11.4484 2.10218 11.9018 2.10156 12.3747V17.1135C2.10156 17.2712 2.17193 17.4224 2.29717 17.5339C2.42242 17.6454 2.5923 17.708 2.76942 17.708H6.09625C6.20637 17.7077 6.31471 17.6833 6.41163 17.6367C6.50855 17.5902 6.59104 17.5231 6.65176 17.4413L7.78775 15.9302H16.3951L17.531 17.4413C17.5918 17.5231 17.6743 17.5902 17.7712 17.6367C17.8681 17.6833 17.9764 17.7077 18.0866 17.708H21.4134C21.5894 17.7065 21.7577 17.6432 21.8816 17.5319C22.0055 17.4206 22.075 17.2702 22.075 17.1135V12.3747C22.0744 11.9018 21.8634 11.4484 21.4883 11.1135ZM6.09625 3.48576H18.0803C18.61 3.48576 19.1181 3.67306 19.4927 4.00646C19.8672 4.33986 20.0777 4.79205 20.0777 5.26354V8.83576C19.778 8.45662 19.3781 8.14887 18.9134 7.93961C18.4486 7.73035 17.9332 7.62601 17.4125 7.63576H6.76411C6.32701 7.63469 5.894 7.71072 5.4901 7.85948C5.08621 8.00824 4.71944 8.22676 4.41099 8.50243C4.29799 8.60664 4.19369 8.71804 4.09891 8.83576V5.26354C4.09891 4.79205 4.30934 4.33986 4.68392 4.00646C5.05849 3.67306 5.56652 3.48576 6.09625 3.48576ZM19.4098 10.5969H4.76677C4.76677 10.1254 4.9772 9.67319 5.35178 9.3398C5.72635 9.0064 6.23438 8.8191 6.76411 8.8191H17.4125C17.9422 8.8191 18.4502 9.0064 18.8248 9.3398C19.1994 9.67319 19.4098 10.1254 19.4098 10.5969ZM20.7393 16.5247H18.4299L17.3001 15.0024C17.2387 14.9217 17.1559 14.8556 17.059 14.8101C16.9621 14.7646 16.8541 14.741 16.7446 14.7413H7.42573C7.31618 14.741 7.20821 14.7646 7.11133 14.8101C7.01446 14.8556 6.93165 14.9217 6.87022 15.0024L5.74047 16.5191H3.43104V12.3747C3.43104 12.2966 3.44832 12.2193 3.48188 12.1472C3.51545 12.075 3.56464 12.0095 3.62666 11.9543C3.68867 11.8991 3.7623 11.8553 3.84333 11.8255C3.92436 11.7956 4.0112 11.7802 4.09891 11.7802H20.0777C20.2548 11.7802 20.4247 11.8428 20.5499 11.9543C20.6752 12.0658 20.7455 12.217 20.7455 12.3747L20.7393 16.5247Z"
-													fill="#181A20"
-												/>
-											</svg>
-										</Stack> */}
-										{/* <Stack className={'option-includes'}>
-											<Typography className={'title'}>Bedroom</Typography>
-											<Typography className={'option-data'}>{property?.propertyBeds}</Typography>
-										</Stack> */}
+
 									</Stack>
 									<Stack className={'option'}>
 										<Stack className={'svg-box'}>
@@ -366,24 +448,18 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 									</Stack>
 								</Stack>
 								<Stack className={'floor-plans-config'}>
-									<Typography className={'title'}>Floor Plans</Typography>
+									<Typography className={'title'}>Car in!</Typography>
 									<Stack className={'image-box'}>
 										<img src={'/img/banner/2022-Kia-Carnival-4.jpg'} alt={'image'} />
 									</Stack>
 								</Stack>
 								<Stack className={'address-config'}>
-									<Typography className={'title'}>Address</Typography>
-									<Stack className={'map-box'}>
-										<iframe
-											src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d25867.098915951767!2d128.68632810247993!3d35.86402299180927!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x35660bba427bf179%3A0x1fc02da732b9072f!2sGeumhogangbyeon-ro%2C%20Dong-gu%2C%20Daegu!5e0!3m2!1suz!2skr!4v1695537640704!5m2!1suz!2skr"
-											width="100%"
-											height="100%"
-											style={{ border: 0 }}
-											allowFullScreen={true}
-											loading="lazy"
-											referrerPolicy="no-referrer-when-downgrade"
-										></iframe>
-									</Stack>
+
+
+
+									
+
+
 								</Stack>
 								{commentTotal !== 0 && (
 									<Stack className={'reviews-config'}>
@@ -434,13 +510,14 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 										<Button
 											className={'submit-review'}
 											disabled={insertCommentData.commentContent === '' || user?._id === ''}
+											onClick={createCommentHandler}
 										>
 											<Typography className={'title'}>Submit Review</Typography>
 											<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 17 17" fill="none">
 												<g clipPath="url(#clip0_6975_3642)">
 													<path
 														d="M16.1571 0.5H6.37936C6.1337 0.5 5.93491 0.698792 5.93491 0.944458C5.93491 1.19012 6.1337 1.38892 6.37936 1.38892H15.0842L0.731781 15.7413C0.558156 15.915 0.558156 16.1962 0.731781 16.3698C0.818573 16.4566 0.932323 16.5 1.04603 16.5C1.15974 16.5 1.27345 16.4566 1.36028 16.3698L15.7127 2.01737V10.7222C15.7127 10.9679 15.9115 11.1667 16.1572 11.1667C16.4028 11.1667 16.6016 10.9679 16.6016 10.7222V0.944458C16.6016 0.698792 16.4028 0.5 16.1571 0.5Z"
-														fill="#181A20"
+														fill="#000000"
 													/>
 												</g>
 												<defs>
@@ -491,28 +568,55 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 								</Stack>
 								<Stack className={'info-box'}>
 									<Typography className={'sub-title'}>Name</Typography>
-									<input type={'text'} placeholder={'Enter your name'} />
+									<input
+										type={'text'}
+										placeholder={'Enter your name'}
+										value={insertMessageData.name}
+										onChange={({ target: { value } }: any) => {
+											setInsertMessageData({ ...insertMessageData, name: value });
+										}}
+									/>
 								</Stack>
 								<Stack className={'info-box'}>
 									<Typography className={'sub-title'}>Phone</Typography>
-									<input type={'text'} placeholder={'Enter your phone'} />
+									<input
+										type={'text'}
+										placeholder={'Enter your phone'}
+										value={insertMessageData.phone}
+										onChange={({ target: { value } }: any) => {
+											setInsertMessageData({ ...insertMessageData, phone: value });
+										}}
+									/>
 								</Stack>
 								<Stack className={'info-box'}>
 									<Typography className={'sub-title'}>Email</Typography>
-									<input type={'text'} placeholder={'creativelayers088'} />
+									<input
+										type={'text'}
+										placeholder={'creativelayers088'}
+										value={insertMessageData.email}
+										onChange={({ target: { value } }: any) => {
+											setInsertMessageData({ ...insertMessageData, email: value });
+										}}
+									/>
 								</Stack>
 								<Stack className={'info-box'}>
 									<Typography className={'sub-title'}>Message</Typography>
-									<textarea placeholder={'Hello, I am interested in \n' + '[Renovated property at  floor]'}></textarea>
+									<textarea
+										placeholder={'Hello, I am interested in \n' + '[Renovated property at  floor]'}
+										value={insertMessageData.message}
+										onChange={({ target: { value } }: any) => {
+											setInsertMessageData({ ...insertMessageData, message: value });
+										}}
+									></textarea>
 								</Stack>
 								<Stack className={'info-box'}>
-									<Button className={'send-message'}>
+									<Button className={'send-message'} disabled={doDisabledCheck()} onClick={createMessageHandler}>
 										<Typography className={'title'}>Send Message</Typography>
 										<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 17 17" fill="none">
 											<g clipPath="url(#clip0_6975_593)">
 												<path
 													d="M16.0556 0.5H6.2778C6.03214 0.5 5.83334 0.698792 5.83334 0.944458C5.83334 1.19012 6.03214 1.38892 6.2778 1.38892H14.9827L0.630219 15.7413C0.456594 15.915 0.456594 16.1962 0.630219 16.3698C0.71701 16.4566 0.83076 16.5 0.944469 16.5C1.05818 16.5 1.17189 16.4566 1.25872 16.3698L15.6111 2.01737V10.7222C15.6111 10.9679 15.8099 11.1667 16.0556 11.1667C16.3013 11.1667 16.5001 10.9679 16.5001 10.7222V0.944458C16.5 0.698792 16.3012 0.5 16.0556 0.5Z"
-													fill="white"
+													fill="#181a20"
 												/>
 											</g>
 											<defs>
@@ -523,9 +627,34 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 										</svg>
 									</Button>
 								</Stack>
+								<Stack width={'100%'}>
+									<video
+		            		autoPlay
+		            		muted
+		            		loop
+		            		playsInline
+		            		preload="auto"
+		            		style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius:'20px', marginTop:'25px',  }}
+		            	>
+		            		<source src="/video//asd6.mp4" type="video/mp4" />
+		            	</video>
+									</Stack>
+									<Stack width={'100%'}>
+									<video
+		            		autoPlay
+		            		muted
+		            		loop
+		            		playsInline
+		            		preload="auto"
+		            		style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius:'20px', marginTop:'25px',  }}
+		            	>
+		            		<source src="/video//mecadess.mp4" type="video/mp4" />
+		            	</video>
+									</Stack>
+
 							</Stack>
 						</Stack>
-						{destinationProperty.length !== 0 && (
+						{destinationProperties.length !== 0 && (
 							<Stack className={'similar-properties-config'}>
 								<Stack className={'title-pagination-box'}>
 									<Stack className={'title-box'}>
@@ -552,7 +681,7 @@ const PropertyDetail: NextPage = ({ initialComment, ...props }: any) => {
 											el: '.swiper-similar-pagination',
 										}}
 									>
-										{destinationProperty.map((property: Property) => {
+										{destinationProperties.map((property: Property) => {
 											return (
 												<SwiperSlide className={'similar-homes-slide'} key={property.propertyTitle}>
 													<PropertyBigCard property={property} key={property?._id} />

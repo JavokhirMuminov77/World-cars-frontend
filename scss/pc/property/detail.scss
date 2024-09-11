@@ -175,7 +175,7 @@
 						flex-direction: row;
 						gap: 10px;
 						.sub-img-box {
-							width: 120px;
+							width: 220px;
 							height: 120px;
 							cursor: pointer;
 							img {
@@ -248,7 +248,7 @@
 						padding: 29px 38px 50px 38px;
 						border-radius: 12px;
 						border: 1px solid #c4c4c4;
-						background:#E0FFFF;
+						background:#F8F8FF;
 						.top {
 							width: 100%;
 							height: auto;
@@ -320,21 +320,12 @@
 						}
 					}
 					.floor-plans-config {
-						background: #E0FFFF;
+
 						width: 100%;
 						height: auto;
 						gap: 30px;
-						padding: 30px 38px;
-						border-radius: 12px;
-						border: 1px solid #c4c4c4;
-						.title {
-							color: #181a20;
-							font-family: $font;
-							font-size: 17px;
-							font-style: normal;
-							font-weight: 600;
-							line-height: normal;
-						}
+
+
 						.image-box {
 							width: 100%;
 							height: 510px;
@@ -348,13 +339,12 @@
 						}
 					}
 					.address-config {
-						background:#E0FFFF;
+
 						width: 100%;
 						height: auto;
 						gap: 30px;
-						padding: 30px 38px;
-						border-radius: 12px;
-						border: 1px solid #c4c4c4;
+
+
 						.title {
 							color: #181a20;
 							font-family: $font;
@@ -363,22 +353,19 @@
 							font-weight: 600;
 							line-height: normal;
 						}
-						.map-box {
-							width: 100%;
-							height: 400px;
-							iframe {
-								border-radius: 12px;
-							}
+						img {
+							border-radius: 20px;
 						}
 					}
 					.reviews-config {
-
+	          background:#F8F8FF;
 						width: 100%;
 						height: auto;
 						padding: 30px 38px 45px 38px;
 						border-radius: 12px;
 						border: 1px solid #c4c4c4;
 						.filter-box {
+
 							width: 100%;
 							height: auto;
 							flex-direction: row;
@@ -452,7 +439,7 @@
 											align-items: center;
 											justify-content: center;
 											border-radius: 50%;
-											background:#E0FFFF;
+											background:#F8F8FF;
 											border: 1px solid #b9b9b9;
 											object-fit: cover;
 										}
@@ -506,7 +493,7 @@
 					.leave-review-config {
 						border-radius: 12px;
 						border: 1px solid #c4c4c4;
-						background:#E0FFFF;
+						background:#F8F8FF;
 						box-shadow: 0px 1px 4px 0px rgba(24, 26, 32, 0.07);
 						padding: 30px 38px;
 						.main-title {
@@ -575,7 +562,7 @@
 					width: 318px;
 					height: fit-content;
 					padding: 30px 25px;
-					background:#AFEEEE;
+					background:#F8F8FF;
 					gap: 20px;
 					border-radius: 12px;
 					border: 1px solid rgba(196, 196, 196, 0.79);
