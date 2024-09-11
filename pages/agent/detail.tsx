@@ -63,10 +63,11 @@ const AgentDetail: NextPage = ({ initialInput, initialComment, ...props }: any) 
 			setAgent(data?.getMember);
 			setSearchFilter({
 				...searchFilter,
-				// search: {
-				// 	memberId: data?.getMember?._id,
-					
-				// },
+				search: {
+					memberId: data?.getMember?._id,
+					sizeList: undefined,
+					commentRefId: undefined
+				},
 			});
 			setCommentInquiry({
 				...commentInquiry,
