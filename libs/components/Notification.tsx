@@ -92,7 +92,7 @@ export default function BasicPopover() {
 				}
 				color="secondary"
 			>
-				<NotificationsOutlinedIcon style={{ cursor: 'pointer' }} onClick={handleClick} />
+				<NotificationsOutlinedIcon  onClick={handleClick} />
 			</Badge>
 
 			<Popover
