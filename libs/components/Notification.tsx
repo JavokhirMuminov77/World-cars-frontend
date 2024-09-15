@@ -22,10 +22,14 @@ export default function BasicPopover() {
 	const router = useRouter();
 	const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(null);
 	const [notification, setNotification] = React.useState<Notification[]>([]);
-	const handleClick = (event: React.MouseEvent<HTMLButtonElement>, notificationId: string) => {
-		setAnchorEl(event.currentTarget);
-		// markNotificationsAsRead();
-	};
+	// const handleClick = (event: React.MouseEvent<HTMLButtonElement>, notificationId: string) => {
+	// 	setAnchorEl(event.currentTarget);
+	// 	// markNotificationsAsRead();
+	// };
+
+	const handleClick: React.MouseEventHandler<SVGSVGElement> = (event) => {
+		console.log('Icon clicked', event);
+	  };
 
 	const [markNotificationAsRead] = useMutation(MARK_NOTIFICATION_READ, {
 		onCompleted: () => {
@@ -81,6 +85,10 @@ export default function BasicPopover() {
 			if (data?.getNotificationsByUserId) setNotification(data?.getNotificationsByUserId);
 		},
 	});
+
+	
+
+	
 
 	return (
 		<div>
